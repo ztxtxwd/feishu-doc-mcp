@@ -1,0 +1,56 @@
+{
+  "name": "feishu-doc-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Feishu Open Platform Documentation",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "feishu-doc-mcp": "./build/index.js"
+  },
+  "files": [
+    "build",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc && chmod +x build/index.js",
+    "dev": "tsc --watch",
+    "start": "node build/index.js",
+    "prepare": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ztxtxwd/feishu-doc-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "feishu",
+    "lark",
+    "documentation",
+    "api",
+    "claude",
+    "ai"
+  ],
+  "author": "ztxtxwd",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ztxtxwd/feishu-doc-mcp/issues"
+  },
+  "homepage": "https://github.com/ztxtxwd/feishu-doc-mcp#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.1",
+    "axios": "^1.6.0",
+    "turndown": "^7.1.0",
+    "zod": "^4.2.1",
+    "zod-to-json-schema": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/turndown": "^5.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
