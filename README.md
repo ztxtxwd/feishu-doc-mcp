@@ -72,7 +72,7 @@ Or if installed globally:
 Search Feishu API documentation by category. Returns a list of documents under the specified category.
 
 **Parameters:**
-- `category`: Document category in format "Level1_Level2" (e.g., "服务端API_即时通讯", "开发指南_开发机器人")
+- `category`: Document category in format "Level1_Level2" (e.g., "服务端 API_即时通讯", "开发指南_开发机器人")
 
 ### read_feishu_doc
 
