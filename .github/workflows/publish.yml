@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 permissions:
-  id-token: write
+  id-token: write  # Required for OIDC
   contents: read
 
 jobs:
@@ -17,15 +17,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Update npm to latest
-        run: npm install -g npm@latest
-
-      - name: Check npm version
-        run: npm --version
-
       - run: npm ci
-      - run: npm run build
-      - run: npm publish --access public
+      - run: npm run build --if-present
+      - run: npm publish
