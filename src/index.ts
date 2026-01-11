@@ -1,18 +1,12 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import TurndownService from "turndown";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as crypto from "crypto";
 import { z } from "zod";
 
-// 初始化 Turndown 用于将 HTML 转为 Markdown
-const turndownService = new TurndownService({
-  headingStyle: "atx",
-  codeBlockStyle: "fenced",
-});
 
 // API 端点
 const DIRECTORY_LIST_URL = "https://open.feishu.cn/api/tools/docment/directory_list";
@@ -315,20 +309,11 @@ class FeishuDocServer {
         content += `${detail.description}\n\n`;
       }
 
-      // 主要内容 - 通常在 content 或 body 字段
+      // 主要内容
       if (detail.content) {
-        // 如果是 HTML，转换为 Markdown
-        if (typeof detail.content === "string" && detail.content.includes("<")) {
-          content += turndownService.turndown(detail.content);
-        } else {
-          content += detail.content;
-        }
+        content += detail.content;
       } else if (detail.body) {
-        if (typeof detail.body === "string" && detail.body.includes("<")) {
-          content += turndownService.turndown(detail.body);
-        } else {
-          content += JSON.stringify(detail.body, null, 2);
-        }
+        content += typeof detail.body === "string" ? detail.body : JSON.stringify(detail.body, null, 2);
       } else {
         // 返回原始数据结构供分析
         content += "```json\n" + JSON.stringify(detail, null, 2) + "\n```";
