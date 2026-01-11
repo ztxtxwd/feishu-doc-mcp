@@ -319,18 +319,39 @@ class FeishuDocServer {
         content += "```json\n" + JSON.stringify(detail, null, 2) + "\n```";
       }
 
-      // 如果存在 schema 字段，追加到内容中
-      if (detail.schema) {
-        content += "\n\n---\n\n## Schema\n\n";
-        content += "```json\n" + JSON.stringify(detail.schema, null, 2) + "\n```";
-      }
-
       const finalContent = content || "文档内容为空";
 
       // 保存到临时文件
       this.ensureTempDir();
       const tempFilePath = this.getTempFilePath(docPath);
       fs.writeFileSync(tempFilePath, finalContent, "utf-8");
+
+      // 如果存在 schema 字段，提取各语言的请求示例并分别保存
+      const savedExampleFiles: string[] = [];
+      const schema = detail.schema as Record<string, unknown> | undefined;
+      const apiSchema = schema?.apiSchema as Record<string, unknown> | undefined;
+      const requestBody = apiSchema?.requestBody as Record<string, unknown> | undefined;
+      const contentObj = requestBody?.content as Record<string, unknown> | undefined;
+      const jsonContent = contentObj?.["application/json"] as Record<string, unknown> | undefined;
+      const examples = jsonContent?.examples as Record<string, { value?: unknown }> | undefined;
+
+      if (examples) {
+        // 获取基础文件名（不含扩展名）
+        const baseFileName = path.basename(tempFilePath, ".md");
+        // 过滤掉不需要的语言示例
+        const excludedLangs = ["curl", "c#-restsharp", "php-guzzle"];
+
+        for (const [lang, exampleData] of Object.entries(examples)) {
+          if (excludedLangs.includes(lang)) continue;
+          if (exampleData && typeof exampleData === "object" && "value" in exampleData) {
+            const exampleContent = exampleData.value as string;
+            const exampleFileName = `${baseFileName}-${lang}-请求示例`;
+            const exampleFilePath = path.join(TEMP_DOC_DIR, exampleFileName);
+            fs.writeFileSync(exampleFilePath, exampleContent, "utf-8");
+            savedExampleFiles.push(exampleFilePath);
+          }
+        }
+      }
 
       // 获取文件大小
       const stats = fs.statSync(tempFilePath);
@@ -345,6 +366,10 @@ class FeishuDocServer {
 
       if (isLargeFile) {
         message += `\n\n⚠️ 警告: 该文档较大，直接读取可能占用大量 context window。建议使用 Read 工具的 offset 和 limit 参数分段读取，或使用 Grep 工具搜索特定内容。`;
+      }
+
+      if (savedExampleFiles.length > 0) {
+        message += `\n\n请求示例文件已保存:\n${savedExampleFiles.map((f) => `  - ${f}`).join("\n")}`;
       }
 
       return {
