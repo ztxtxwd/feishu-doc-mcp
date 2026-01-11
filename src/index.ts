@@ -270,6 +270,47 @@ class FeishuDocServer {
     }
   }
 
+  // 清理 Markdown 内容：去除 md-* 标签和多余空行
+  private cleanMarkdownContent(content: string): string {
+    let cleaned = content;
+
+    // 去除 :::html 和 ::: 块
+    cleaned = cleaned.replace(/:::html\n?/g, "");
+    cleaned = cleaned.replace(/:::\n?/g, "");
+
+    // 去除所有 <md-*> 标签（开标签和闭标签，包含属性）
+    cleaned = cleaned.replace(/<md-[a-z0-9-]+[^>]*>/g, "");
+    cleaned = cleaned.replace(/<\/md-[a-z0-9-]+>/g, "");
+
+    // 去除其他常见 HTML 标签
+    cleaned = cleaned.replace(/<div[^>]*>/g, "");
+    cleaned = cleaned.replace(/<\/div>/g, "");
+    cleaned = cleaned.replace(/<tr>/g, "");
+    cleaned = cleaned.replace(/<\/tr>/g, "");
+    cleaned = cleaned.replace(/<font[^>]*>/g, "");
+    cleaned = cleaned.replace(/<\/font>/g, "");
+
+    // 去除多余空行：将连续多个空行减少到最多一个
+    const lines = cleaned.split("\n");
+    const result: string[] = [];
+    let prevEmpty = false;
+
+    for (const line of lines) {
+      const stripped = line.trim();
+      if (stripped === "") {
+        if (!prevEmpty) {
+          result.push("");
+        }
+        prevEmpty = true;
+      } else {
+        result.push(stripped);
+        prevEmpty = false;
+      }
+    }
+
+    return result.join("\n");
+  }
+
   // 读取文档内容
   private async handleReadDoc(docPath: string) {
     try {
@@ -319,7 +360,7 @@ class FeishuDocServer {
         content += "```json\n" + JSON.stringify(detail, null, 2) + "\n```";
       }
 
-      const finalContent = content || "文档内容为空";
+      const finalContent = this.cleanMarkdownContent(content || "文档内容为空");
 
       // 保存到临时文件
       this.ensureTempDir();
