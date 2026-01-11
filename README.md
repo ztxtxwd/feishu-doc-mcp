@@ -45,8 +45,10 @@
 无需安装，直接使用 npx 运行：
 
 ```bash
-npx feishu-doc-mcp
+npx feishu-doc-mcp@latest
 ```
+
+> 使用 `@latest` 确保每次运行时获取最新版本。
 
 ### 全局安装
 
@@ -73,7 +75,7 @@ feishu-doc-mcp
   "mcpServers": {
     "feishu-doc": {
       "command": "npx",
-      "args": ["feishu-doc-mcp"]
+      "args": ["feishu-doc-mcp@latest"]
     }
   }
 }
