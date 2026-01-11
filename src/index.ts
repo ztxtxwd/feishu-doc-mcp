@@ -1,14 +1,12 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import axios from "axios";
 import TurndownService from "turndown";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as crypto from "crypto";
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 
 // 初始化 Turndown 用于将 HTML 转为 Markdown
 const turndownService = new TurndownService({
@@ -99,17 +97,20 @@ class FeishuDocServer {
     try {
       // 并行获取文档树和 URI 映射
       const [treeResponse, mappingResponse] = await Promise.all([
-        axios.get<DirectoryListResponse>(DIRECTORY_LIST_URL, { timeout: 30000 }),
-        axios.get<UriMappingResponse>(URI_MAPPING_URL, { timeout: 30000 }),
+        fetch(DIRECTORY_LIST_URL, { signal: AbortSignal.timeout(30000) }),
+        fetch(URI_MAPPING_URL, { signal: AbortSignal.timeout(30000) }),
       ]);
 
-      if (treeResponse.data.code === 0) {
-        this.docTree = treeResponse.data.data.items;
+      const treeData = (await treeResponse.json()) as DirectoryListResponse;
+      const mappingData = (await mappingResponse.json()) as UriMappingResponse;
+
+      if (treeData.code === 0) {
+        this.docTree = treeData.data.items;
         console.error(`[Init] Loaded ${this.countNodes(this.docTree)} document nodes`);
       }
 
-      if (mappingResponse.data.code === 0) {
-        this.uriMap = mappingResponse.data.data.uriMap;
+      if (mappingData.code === 0) {
+        this.uriMap = mappingData.data.uriMap;
         console.error(`[Init] Loaded ${Object.keys(this.uriMap).length} URI mappings`);
       }
 
@@ -287,16 +288,19 @@ class FeishuDocServer {
       }
 
       // 请求文档内容
-      const response = await axios.get(DOC_DETAIL_URL, {
-        params: { fullPath: requestPath },
-        timeout: 30000,
+      const url = new URL(DOC_DETAIL_URL);
+      url.searchParams.set("fullPath", requestPath);
+      const response = await fetch(url.toString(), {
+        signal: AbortSignal.timeout(30000),
       });
 
-      if (response.data.code !== 0) {
-        throw new Error(`API error: ${response.data.msg || "Unknown error"}`);
+      const data = await response.json() as { code: number; msg?: string; data: Record<string, unknown> };
+
+      if (data.code !== 0) {
+        throw new Error(`API error: ${data.msg || "Unknown error"}`);
       }
 
-      const detail = response.data.data;
+      const detail = data.data;
 
       // 提取文档内容
       let content = "";
@@ -367,10 +371,8 @@ class FeishuDocServer {
         ],
       };
     } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        throw new Error(`Failed to fetch document: ${error.message}`);
-      }
-      throw error;
+      const message = error instanceof Error ? error.message : "Unknown error";
+      throw new Error(`Failed to fetch document: ${message}`);
     }
   }
 

@@ -40,10 +40,8 @@
   "homepage": "https://github.com/ztxtxwd/feishu-doc-mcp#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1",
-    "axios": "^1.6.0",
     "turndown": "^7.1.0",
-    "zod": "^4.2.1",
-    "zod-to-json-schema": "^3.25.0"
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
