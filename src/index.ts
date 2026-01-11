@@ -270,6 +270,86 @@ class FeishuDocServer {
     }
   }
 
+  // 按二级标题拆分文档内容
+  private splitByH2(content: string, baseFilePath: string): string[] {
+    const savedFiles: string[] = [];
+    const lines = content.split("\n");
+
+    // 找到所有二级标题的位置
+    const h2Indices: { index: number; title: string }[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith("## ")) {
+        const title = line.substring(3).trim();
+        h2Indices.push({ index: i, title });
+      }
+    }
+
+    // 如果没有二级标题或只有一个，不拆分
+    if (h2Indices.length <= 1) {
+      return savedFiles;
+    }
+
+    // 获取一级标题（如果有）
+    let h1Title = "";
+    for (const line of lines) {
+      if (line.startsWith("# ") && !line.startsWith("## ")) {
+        h1Title = line;
+        break;
+      }
+    }
+
+    // 创建拆分文件的目录
+    const baseDir = path.dirname(baseFilePath);
+    const baseName = path.basename(baseFilePath, ".md");
+    const splitDir = path.join(baseDir, baseName);
+    if (!fs.existsSync(splitDir)) {
+      fs.mkdirSync(splitDir, { recursive: true });
+    }
+
+    // 拆分每个二级标题的内容
+    for (let i = 0; i < h2Indices.length; i++) {
+      const { index: startIdx, title } = h2Indices[i];
+      const endIdx = i < h2Indices.length - 1 ? h2Indices[i + 1].index : lines.length;
+
+      // 提取该二级标题下的内容
+      const sectionLines = lines.slice(startIdx, endIdx);
+
+      // 构建文件内容：一级标题 + 二级标题内容
+      let sectionContent = "";
+      if (h1Title) {
+        sectionContent = h1Title + "\n\n";
+      }
+      sectionContent += sectionLines.join("\n").trim();
+
+      // 清理标题中的特殊字符作为文件名
+      const cleanTitle = title
+        .replace(/[<>:"/\\|?*]/g, "_")  // 替换文件名非法字符
+        .replace(/\s+/g, "_")            // 空格替换为下划线
+        .substring(0, 50);               // 限制长度
+
+      // 生成文件名：标题.md
+      let fileName = `${cleanTitle}.md`;
+      let filePath = path.join(splitDir, fileName);
+
+      fs.writeFileSync(filePath, sectionContent, "utf-8");
+
+      // 检查文件大小，大文件重命名加提示
+      const LARGE_FILE_THRESHOLD = 50 * 1024;
+      const stats = fs.statSync(filePath);
+      if (stats.size > LARGE_FILE_THRESHOLD) {
+        const newFileName = `[大文件勿直接读取]${cleanTitle}.md`;
+        const newFilePath = path.join(splitDir, newFileName);
+        fs.renameSync(filePath, newFilePath);
+        filePath = newFilePath;
+      }
+
+      savedFiles.push(filePath);
+    }
+
+    return savedFiles;
+  }
+
   // 清理 Markdown 内容：去除 md-* 标签和多余空行
   private cleanMarkdownContent(content: string): string {
     let cleaned = content;
@@ -367,6 +447,14 @@ class FeishuDocServer {
       const tempFilePath = this.getTempFilePath(docPath);
       fs.writeFileSync(tempFilePath, finalContent, "utf-8");
 
+      // 按二级标题拆分文档
+      const splitFiles = this.splitByH2(finalContent, tempFilePath);
+
+      // 如果成功拆分，删除完整文档文件
+      if (splitFiles.length > 0) {
+        fs.unlinkSync(tempFilePath);
+      }
+
       // 如果存在 schema 字段，提取各语言的请求示例并分别保存
       const savedExampleFiles: string[] = [];
       const schema = detail.schema as Record<string, unknown> | undefined;
@@ -394,19 +482,36 @@ class FeishuDocServer {
         }
       }
 
-      // 获取文件大小
-      const stats = fs.statSync(tempFilePath);
-      const fileSizeBytes = stats.size;
-      const fileSizeKB = (fileSizeBytes / 1024).toFixed(2);
+      // 构建返回消息
+      let message = "";
 
-      // 大文件阈值：50KB（约 50000 字符，可能占用大量 context window）
-      const LARGE_FILE_THRESHOLD = 50 * 1024;
-      const isLargeFile = fileSizeBytes > LARGE_FILE_THRESHOLD;
+      // 添加标题和描述
+      if (detail.name) {
+        message += `# ${detail.name}\n\n`;
+      }
+      if (detail.description) {
+        message += `${detail.description}\n\n`;
+      }
 
-      let message = `文档已保存到: ${tempFilePath}\n文件大小: ${fileSizeKB} KB (${fileSizeBytes} bytes)`;
+      if (splitFiles.length > 0) {
+        // 文档已拆分
+        const splitDir = path.dirname(splitFiles[0]);
+        const fileNames = splitFiles.map((f) => `  - ${path.basename(f)}`).join("\n");
+        message += `文档已按二级标题拆分为 ${splitFiles.length} 个文件:\n目录: ${splitDir}\n${fileNames}`;
+      } else {
+        // 未拆分，保存完整文档
+        const stats = fs.statSync(tempFilePath);
+        const fileSizeBytes = stats.size;
+        const fileSizeKB = (fileSizeBytes / 1024).toFixed(2);
 
-      if (isLargeFile) {
-        message += `\n\n⚠️ 警告: 该文档较大，直接读取可能占用大量 context window。建议使用 Read 工具的 offset 和 limit 参数分段读取，或使用 Grep 工具搜索特定内容。`;
+        const LARGE_FILE_THRESHOLD = 50 * 1024;
+        const isLargeFile = fileSizeBytes > LARGE_FILE_THRESHOLD;
+
+        message += `文档已保存到: ${tempFilePath}\n文件大小: ${fileSizeKB} KB (${fileSizeBytes} bytes)`;
+
+        if (isLargeFile) {
+          message += `\n\n⚠️ 警告: 该文档较大，直接读取可能占用大量 context window。建议使用 Read 工具的 offset 和 limit 参数分段读取，或使用 Grep 工具搜索特定内容。`;
+        }
       }
 
       if (savedExampleFiles.length > 0) {
