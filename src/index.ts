@@ -455,6 +455,12 @@ class FeishuDocServer {
         fs.unlinkSync(tempFilePath);
       }
 
+      // 确定请求示例保存目录（优先使用拆分目录）
+      const baseName = path.basename(tempFilePath, ".md");
+      const examplesDir = splitFiles.length > 0
+        ? path.dirname(splitFiles[0])
+        : TEMP_DOC_DIR;
+
       // 如果存在 schema 字段，提取各语言的请求示例并分别保存
       const savedExampleFiles: string[] = [];
       const schema = detail.schema as Record<string, unknown> | undefined;
@@ -465,8 +471,6 @@ class FeishuDocServer {
       const examples = jsonContent?.examples as Record<string, { value?: unknown }> | undefined;
 
       if (examples) {
-        // 获取基础文件名（不含扩展名）
-        const baseFileName = path.basename(tempFilePath, ".md");
         // 过滤掉不需要的语言示例
         const excludedLangs = ["curl", "c#-restsharp", "php-guzzle"];
 
@@ -474,8 +478,8 @@ class FeishuDocServer {
           if (excludedLangs.includes(lang)) continue;
           if (exampleData && typeof exampleData === "object" && "value" in exampleData) {
             const exampleContent = exampleData.value as string;
-            const exampleFileName = `${baseFileName}-${lang}-请求示例`;
-            const exampleFilePath = path.join(TEMP_DOC_DIR, exampleFileName);
+            const exampleFileName = `${baseName}-${lang}-请求示例`;
+            const exampleFilePath = path.join(examplesDir, exampleFileName);
             fs.writeFileSync(exampleFilePath, exampleContent, "utf-8");
             savedExampleFiles.push(exampleFilePath);
           }
