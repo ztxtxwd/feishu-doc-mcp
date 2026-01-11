@@ -361,7 +361,18 @@ class FeishuDocServer {
     }
   }
 
+  // 清理临时目录
+  private cleanupTempDir() {
+    if (fs.existsSync(TEMP_DOC_DIR)) {
+      fs.rmSync(TEMP_DOC_DIR, { recursive: true, force: true });
+      console.error(`[Cleanup] Removed temp directory: ${TEMP_DOC_DIR}`);
+    }
+  }
+
   async run() {
+    // 启动时清理临时目录
+    this.cleanupTempDir();
+
     // 先初始化并注册工具
     await this.initializeAndRegisterTools();
 
